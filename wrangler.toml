@@ -1,0 +1,11 @@
+name = "talk-with-jesus"
+main = "src-worker.js"
+compatibility_date = "2026-10-17"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[vars]
+GROQ_MODEL = "openai/gpt-oss-20b"
