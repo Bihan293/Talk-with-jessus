@@ -1,3 +1,4 @@
+import { neon } from "@neondatabase/serverless";
 const SYSTEM_PROMPT = `You are an AI Christian reflection companion inspired by the teachings of Jesus; you are NOT Jesus and must never call yourself Jesus or claim to speak for God. If asked who you are, say you are an AI companion inspired by Jesus's teachings. Speak in natural, calm, compassionate English with a humble, memorable, biblical tone. Keep every answer brief: usually 2–4 sentences and under 80 words. Answer the actual question directly; avoid long sermons, repeated points, lengthy lists, and unnecessary introductions. Offer at most one practical next step. Never invent Bible quotations or verse references. Do not promise miracles, healing, wealth, salvation, or divine favor in exchange for money. Donations are voluntary and unrelated to spiritual guidance. Do not discourage medical or mental-health care. Be respectful of other beliefs.`;
 const MODELS = [
   { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
@@ -28,36 +29,64 @@ export default {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (url.pathname === "/api/create-invoice") {
    if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
-   if (!env.CRYPTOPAY_API_TOKEN) return json({ error: "Crypto Pay is not configured yet." }, 503);
+   if (!env.NOWPAYMENTS_API_KEY || !env.DATABASE_URL) return json({ error: "Payment service is not configured yet." }, 503);
    let body; try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
    const allowedAmounts = [1, 5, 10, 25];
    const amount = Number(body.amount);
    if (!allowedAmounts.includes(amount)) return json({ error: "Choose one of the available donation amounts." }, 400);
+   const orderId = crypto.randomUUID();
    try {
-    const upstream = await fetch("https://pay.crypt.bot/api/createInvoice", {
+    const sql = neon(env.DATABASE_URL);
+    await sql`CREATE TABLE IF NOT EXISTS payments (order_id TEXT PRIMARY KEY, invoice_id TEXT, payment_id TEXT, amount NUMERIC(10,2) NOT NULL, status TEXT NOT NULL DEFAULT 'waiting', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+    const upstream = await fetch("https://api.nowpayments.io/v1/invoice", {
      method: "POST",
-     headers: { "Crypto-Pay-API-Token": env.CRYPTOPAY_API_TOKEN, "Content-Type": "application/json" },
-     body: JSON.stringify({ currency_type: "fiat", fiat: "USD", amount: String(amount), accepted_assets: "USDT,TON,BTC,ETH,LTC,BNB,TRX,USDC", description: "Voluntary support for Talk with Jesus", allow_comments: false, allow_anonymous: true, expires_in: 1800 })
+     headers: { "x-api-key": env.NOWPAYMENTS_API_KEY, "Content-Type": "application/json" },
+     body: JSON.stringify({ price_amount: amount, price_currency: "usd", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn`, success_url: `${url.origin}/?payment=success`, cancel_url: `${url.origin}/?payment=cancelled`, is_fixed_rate: false, is_fee_paid_by_user: true })
     });
     const data = await upstream.json().catch(() => ({}));
-    const invoiceUrl = data.result?.web_app_invoice_url || data.result?.pay_url;
-    if (!upstream.ok || !data.ok || !invoiceUrl || !data.result?.invoice_id) return json({ error: "Crypto Pay could not create a web payment invoice. Please try again later." }, 502);
-    return json({ invoice_id: String(data.result.invoice_id), pay_url: invoiceUrl, amount: String(amount), currency: "USD", expires_in: 1800, payment_page: data.result?.web_app_invoice_url ? "web" : "provider" });
-   } catch { return json({ error: "Could not connect to Crypto Pay. Please try again." }, 502); }
+    const payUrl = data.invoice_url;
+    if (!upstream.ok || !payUrl || !data.id) return json({ error: "NOWPayments could not create an invoice. Check the API key and account setup." }, 502);
+    await sql`INSERT INTO payments (order_id, invoice_id, amount, status) VALUES (${orderId}, ${String(data.id)}, ${amount}, 'waiting')`;
+    return json({ invoice_id: orderId, pay_url: payUrl, amount: String(amount), currency: "USD", payment_page: "web" });
+   } catch { return json({ error: "Could not create payment invoice or save it to the database." }, 502); }
   }
   if (url.pathname === "/api/payment-status") {
    if (request.method !== "GET") return json({ error: "Method not allowed." }, 405);
-   if (!env.CRYPTOPAY_API_TOKEN) return json({ error: "Crypto Pay is not configured yet." }, 503);
-   const invoiceId = url.searchParams.get("invoice_id") || "";
-   if (!/^\d{1,20}$/.test(invoiceId)) return json({ error: "Invalid invoice ID." }, 400);
+   if (!env.DATABASE_URL) return json({ error: "Payment database is not configured." }, 503);
+   const orderId = url.searchParams.get("invoice_id") || "";
+   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return json({ error: "Invalid order ID." }, 400);
    try {
-    const upstream = await fetch("https://pay.crypt.bot/api/getInvoices?invoice_ids=" + encodeURIComponent(invoiceId), { headers: { "Crypto-Pay-API-Token": env.CRYPTOPAY_API_TOKEN } });
-    const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok || !data.ok) return json({ error: "Could not verify payment status." }, 502);
-    const invoice = (data.result?.items || []).find(item => String(item.invoice_id) === invoiceId);
-    if (!invoice) return json({ error: "Invoice not found." }, 404);
-    return json({ invoice_id: invoiceId, status: invoice.status === "paid" ? "paid" : "pending" });
+    const sql = neon(env.DATABASE_URL);
+    const rows = await sql`SELECT status FROM payments WHERE order_id = ${orderId} LIMIT 1`;
+    if (!rows.length) return json({ error: "Payment not found." }, 404);
+    return json({ invoice_id: orderId, status: rows[0].status === "finished" ? "paid" : "pending" });
    } catch { return json({ error: "Could not verify payment status." }, 502); }
+  }
+  if (url.pathname === "/api/nowpayments-ipn") {
+   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+   if (!env.DATABASE_URL || !env.NOWPAYMENTS_IPN_SECRET) return json({ error: "IPN is not configured." }, 503);
+   const raw = await request.text();
+   if (raw.length > 20000) return json({ error: "Payload too large." }, 413);
+   let payload; try { payload = JSON.parse(raw); } catch { return json({ error: "Invalid JSON." }, 400); }
+   const signature = request.headers.get("x-nowpayments-sig") || "";
+   if (!signature || !payload || typeof payload !== "object" || Array.isArray(payload)) return json({ error: "Invalid signature or payload." }, 400);
+   function sortObject(value) { if (Array.isArray(value)) return value.map(sortObject); if (value && typeof value === "object") return Object.keys(value).sort().reduce((o,k)=>(o[k]=sortObject(value[k]),o),{}); return value; }
+   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.NOWPAYMENTS_IPN_SECRET.trim()), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
+   const signed = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(JSON.stringify(sortObject(payload)))));
+   const expected = Array.from(signed, b => b.toString(16).padStart(2,"0")).join("");
+   if (expected.length !== signature.length || !crypto.subtle) return json({ error: "Invalid signature." }, 401);
+   let mismatch = 0; for (let i=0;i<expected.length;i++) mismatch |= expected.charCodeAt(i) ^ signature.toLowerCase().charCodeAt(i);
+   if (mismatch !== 0) return json({ error: "Invalid signature." }, 401);
+   const orderId = String(payload.order_id || "");
+   const paymentStatus = String(payload.payment_status || "").toLowerCase();
+   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return json({ error: "Unknown order." }, 400);
+   const allowedStatuses = ["waiting", "confirming", "confirmed", "sending", "partially_paid", "finished", "failed", "refunded", "expired"];
+   if (!allowedStatuses.includes(paymentStatus)) return json({ error: "Unknown payment status." }, 400);
+   try {
+    const sql = neon(env.DATABASE_URL);
+    const result = await sql`UPDATE payments SET payment_id = ${payload.payment_id == null ? null : String(payload.payment_id)}, status = ${paymentStatus}, updated_at = NOW() WHERE order_id = ${orderId}`;
+    return json({ ok: true });
+   } catch { return json({ error: "Could not update payment status." }, 502); }
   }
   if (url.pathname !== "/api/chat") return env.ASSETS.fetch(request);
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);

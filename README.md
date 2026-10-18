@@ -54,3 +54,8 @@ Payment endpoints: `POST /api/create-invoice` and `GET /api/payment-status?invoi
 
 ## Crypto Pay web invoice
 The create-invoice endpoint prefers `web_app_invoice_url` when Crypto Pay returns it, and falls back to `pay_url` if it does not. The hosted payment page opens separately; Crypto Pay controls that page and may not permit embedding it inside the website. Payment status is verified server-side with `getInvoices`.
+
+
+## NOWPayments + Neon setup
+
+Required Cloudflare Worker secrets: `GROQ_API_KEY`, `DATABASE_URL` (Neon pooled connection string), `NOWPAYMENTS_API_KEY`, and `NOWPAYMENTS_IPN_SECRET`. Do not commit secret values. The Worker creates the `payments` table automatically on the first invoice request. Configure the NOWPayments IPN callback URL to `https://YOUR-WORKER-DOMAIN/api/nowpayments-ipn`. The IPN secret must match the value stored as `NOWPAYMENTS_IPN_SECRET`. Only the NOWPayments `finished` status is shown to the visitor as paid. Test with a small permitted amount before production.
