@@ -50,3 +50,7 @@ Model selection and provider labels are not exposed in the interface; server-sid
 Add `CRYPTOPAY_API_TOKEN` as a **Worker Secret** in Cloudflare (Production environment), then deploy. The site creates fixed USD-denominated voluntary-support invoices for $1, $5, $10, or $25 using the Crypto Pay API and checks invoice status server-side through `getInvoices`. The API token must never be exposed in browser code or committed to Git.
 
 Payment endpoints: `POST /api/create-invoice` and `GET /api/payment-status?invoice_id=...`. This initial integration uses status polling rather than webhooks. Test using Crypto Pay's test environment and test token before enabling real payments; mainnet invoices can accept real funds. Check Crypto Pay's current terms and eligibility rules for your account and country before accepting real payments. This is voluntary support, not a purchase of spiritual services.
+
+
+## Crypto Pay web invoice
+The create-invoice endpoint prefers `web_app_invoice_url` when Crypto Pay returns it, and falls back to `pay_url` if it does not. The hosted payment page opens separately; Crypto Pay controls that page and may not permit embedding it inside the website. Payment status is verified server-side with `getInvoices`.

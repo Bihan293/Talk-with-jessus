@@ -40,8 +40,9 @@ export default {
      body: JSON.stringify({ currency_type: "fiat", fiat: "USD", amount: String(amount), accepted_assets: "USDT,TON,BTC,ETH,LTC,BNB,TRX,USDC", description: "Voluntary support for Talk with Jesus", allow_comments: false, allow_anonymous: true, expires_in: 1800 })
     });
     const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok || !data.ok || !data.result?.pay_url || !data.result?.invoice_id) return json({ error: "Crypto Pay could not create an invoice. Please try again later." }, 502);
-    return json({ invoice_id: String(data.result.invoice_id), pay_url: data.result.pay_url, amount: String(amount), currency: "USD", expires_in: 1800 });
+    const invoiceUrl = data.result?.web_app_invoice_url || data.result?.pay_url;
+    if (!upstream.ok || !data.ok || !invoiceUrl || !data.result?.invoice_id) return json({ error: "Crypto Pay could not create a web payment invoice. Please try again later." }, 502);
+    return json({ invoice_id: String(data.result.invoice_id), pay_url: invoiceUrl, amount: String(amount), currency: "USD", expires_in: 1800, payment_page: data.result?.web_app_invoice_url ? "web" : "provider" });
    } catch { return json({ error: "Could not connect to Crypto Pay. Please try again." }, 502); }
   }
   if (url.pathname === "/api/payment-status") {
