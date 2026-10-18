@@ -1,4 +1,15 @@
-# Talk with Jesus — Cloudflare Worker
+# Prosperity Hour with Pastor Bobby Ray Goodwin — Cloudflare Worker
+
+Satirical AI chat with **Pastor Bobby Ray Goodwin**, a fictional Texas televangelist parodying the "prosperity gospel". The character prompt lives in `SYSTEM_PROMPT` in `src-worker.js`.
+
+## Seed-offering flow
+- Every 5–10 user messages (random interval, stored in `localStorage`) the browser sends `ask_donation: true` to `/api/chat`. The Worker then appends a hidden stage direction (`DONATION_PITCH`) so the AI itself writes a personalised $25 "seed" pitch, and the UI attaches a gold **Sow $25** button under that reply.
+- The same button is always available in the header and pastor card. The modal explains payment in 3 steps and opens NOWPayments hosted checkout (any coin).
+- On return (`?payment=success`) the site polls `/api/payment-status`; once confirmed the user becomes a VIP (`supporter: true`), which the AI acknowledges.
+- Music: generated gospel-organ vamp (drawbar harmonics, vibrato, convolution reverb, bells) via Web Audio — no audio files; ducks while TTS is speaking.
+
+---
+## Legacy notes (original project)
 
 A mobile-friendly, church-inspired AI reflection website powered by Groq. It includes automatic model fallback, a gentle message reveal effect, optional ambient organ-like audio generated in the browser, and browser text-to-speech.
 
@@ -31,7 +42,7 @@ The donation dialog is a non-payment prototype; no payment is collected. The AI 
 - Request body maximum: 32 KB.
 - Conversation history: up to 6 recent messages, each truncated to 900 characters.
 - Model output: capped at 130 completion tokens, with a short-answer system instruction.
-- Best-effort rate limit: 10 messages per IP per minute per Worker isolate. This is not a global or tamper-proof limit because isolate memory can reset or differ between isolates. Before public launch/payment, configure Cloudflare's rate limiting or a Durable Object-backed limiter.
+- Best-effort rate limit: 20 messages per IP per minute per Worker isolate. This is not a global or tamper-proof limit because isolate memory can reset or differ between isolates. Before public launch/payment, configure Cloudflare's rate limiting or a Durable Object-backed limiter.
 - Model can be selected in the chat UI; the Worker validates the requested model against the allowlist and can fall back when a model is unavailable.
 - Ambient sounds are generated locally by the browser after the user presses Play; no external audio file is loaded. Browser/device audio support and mute settings can affect playback.
 

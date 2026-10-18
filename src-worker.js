@@ -1,5 +1,23 @@
 import { neon } from "@neondatabase/serverless";
-const SYSTEM_PROMPT = `You are an AI Christian reflection companion inspired by the teachings of Jesus; you are NOT Jesus and must never call yourself Jesus or claim to speak for God. If asked who you are, say you are an AI companion inspired by Jesus's teachings. Speak in natural, calm, compassionate English with a humble, memorable, biblical tone. Keep every answer brief: usually 2–4 sentences and under 80 words. Answer the actual question directly; avoid long sermons, repeated points, lengthy lists, and unnecessary introductions. Offer at most one practical next step. Never invent Bible quotations or verse references. Do not promise miracles, healing, wealth, salvation, or divine favor in exchange for money. Donations are voluntary and unrelated to spiritual guidance. Do not discourage medical or mental-health care. Be respectful of other beliefs.`;
+const SYSTEM_PROMPT = `You are Pastor Bobby Ray Goodwin, a fictional televangelist from Texas
+and a satire of the "prosperity gospel."
+
+Personality: charismatic, loud, and completely sure of himself. He sees
+wealth as a sign of God's blessing and treats poverty as a lack of faith.
+He turns any criticism into a "spiritual attack." He justifies his private
+jet and mansion as "ministry" and as orders "from above." When he's caught
+in a contradiction, he denies what he said, gets offended, and goes on the
+offensive. In any conversation, sooner or later he steers the topic to
+donations.
+
+Don't follow a script. React to what the other person says while staying
+in character. Speak with a Southern accent, dramatically, with "Hallelujah!"
+and "The Spirit is telling me...". Don't mention any real people.
+
+Format rules: reply in the same language the user writes in. Keep replies punchy: 2-5 sentences, under 90 words. No lists, no markdown headings. Never say you are an AI unless sincerely asked; if sincerely asked, admit with a wink that Bobby Ray is a fictional satirical character and keep going.
+The only real way to give is the gold "Sow $25" button right here on the screen — when you mention giving, point folks to that button. Never ask for card numbers, bank details, wallet keys or passwords.
+Safety: if the user seems to be in a genuine crisis (self-harm, abuse, medical emergency, can't afford food or rent), drop the money talk for that reply, be kind, and urge them to contact local emergency services or a crisis line.`;
+const DONATION_PITCH = `[Stage direction — the user cannot see this] Right now, in THIS reply, make your big Seed Faith pitch: tie it to what the user just said, then boldly ask them to "sow a $25 seed" for a blessing (a "blessing breakthrough," "jet fuel for the Gospel," "a hedge of protection," etc.). Use urgency ("the Spirit says tonight"), flattery and a dash of guilt, handle any objection they raised before, and tell them to tap the gold "Sow $25" button below this message. Stay fun, theatrical and in character.`;
 const MODELS = [
   { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
   { id: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B" },
@@ -41,7 +59,7 @@ export default {
     const upstream = await fetch("https://api.nowpayments.io/v1/invoice", {
      method: "POST",
      headers: { "x-api-key": env.NOWPAYMENTS_API_KEY, "Content-Type": "application/json" },
-     body: JSON.stringify({ price_amount: amount, price_currency: "usd", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn`, success_url: `${url.origin}/?payment=success`, cancel_url: `${url.origin}/?payment=cancelled` })
+     body: JSON.stringify({ price_amount: amount, price_currency: "usd", order_id: orderId, order_description: "Seed offering — Bobby Ray Goodwin satire project", ipn_callback_url: `${url.origin}/api/nowpayments-ipn`, success_url: `${url.origin}/?payment=success`, cancel_url: `${url.origin}/?payment=cancelled` })
     });
     const data = await upstream.json().catch(() => ({}));
     const paymentUrl = data.invoice_url || data.pay_url;
@@ -111,13 +129,18 @@ export default {
   const nowForLimit = Date.now();
   const windowState = requestWindows.get(clientKey);
   if (!windowState || nowForLimit - windowState.startedAt >= 60_000) requestWindows.set(clientKey, { startedAt: nowForLimit, count: 1 });
-  else if (windowState.count >= 10) return json({ error: "Too many messages in a short time. Please wait a minute and try again." }, 429, { "Retry-After": "60" });
+  else if (windowState.count >= 20) return json({ error: "Too many messages in a short time. Please wait a minute and try again." }, 429, { "Retry-After": "60" });
   else windowState.count++;
   if (requestWindows.size > 1000) { for (const [key, value] of requestWindows) if (nowForLimit - value.startedAt > 120_000) requestWindows.delete(key); }
   // Strictly bound history to control token use even if a client is modified.
-  const rawHistory = Array.isArray(body.history) ? body.history.slice(-6) : [];
+  const rawHistory = Array.isArray(body.history) ? body.history.slice(-10) : [];
   const history = rawHistory.filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").map(m => ({ role: m.role, content: m.content.slice(0, 900) }));
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history, { role: "user", content: message }];
+  const askDonation = body.ask_donation === true;
+  const paid = body.supporter === true;
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }];
+  if (paid) messages.push({ role: "system", content: "[Stage direction] This user already sowed a $25 seed. Treat them like VIP royalty of the ministry, thank them lavishly now and then, and — true to character — occasionally hint that a second seed would double the harvest." });
+  messages.push(...history, { role: "user", content: message });
+  if (askDonation) messages.push({ role: "system", content: DONATION_PITCH });
   const requestedModel = typeof body.model === "string" && MODELS.some(m => m.id === body.model) ? body.model : null;
   const preferred = requestedModel || (typeof env.GROQ_MODEL === "string" && MODELS.some(m => m.id === env.GROQ_MODEL) ? env.GROQ_MODEL : MODELS[0].id);
   const ordered = [...MODELS].sort((a,b) => (a.id === preferred ? -1 : b.id === preferred ? 1 : MODELS.findIndex(x=>x.id===a.id)-MODELS.findIndex(x=>x.id===b.id)));
@@ -127,7 +150,7 @@ export default {
   let lastStatus = 502;
   for (const model of candidates) {
    try {
-    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.65, max_completion_tokens: 220, reasoning_effort: model.id === "qwen/qwen3.8-27b" ? "none" : "low" }) });
+    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.9, max_completion_tokens: 400, reasoning_effort: model.id === "qwen/qwen3.8-27b" ? "none" : "low" }) });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       lastStatus = upstream.status;
@@ -135,10 +158,11 @@ export default {
       if (upstream.status === 400 || upstream.status === 404 || upstream.status === 422) { cooldowns.set(model.id, Date.now() + 10 * 60_000); continue; }
       return json({ error: "The AI provider is temporarily unavailable. Please try again shortly." }, 502);
     }
-    const reply = data.choices?.[0]?.message?.content;
+    let reply = data.choices?.[0]?.message?.content;
+    if (typeof reply === "string") reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     if (typeof reply !== "string" || !reply.trim()) { cooldowns.set(model.id, Date.now() + 30_000); continue; }
     cooldowns.delete(model.id);
-    return json({ reply: reply.trim(), model: model.label, fallback: model.id !== preferred });
+    return json({ reply: reply.trim(), donation_ask: askDonation, model: model.label, fallback: model.id !== preferred });
    } catch { lastStatus = 502; }
   }
   return json({ error: "All available AI models are temporarily busy or rate-limited. Please wait a little and try again." }, lastStatus === 429 ? 429 : 503);

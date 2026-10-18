@@ -1,58 +1,149 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#160d09">
-<meta name="color-scheme" content="dark"><meta name="description" content="Talk with Jesus — a quiet space for prayer, reflection, and biblical guidance.">
-<title>Talk with Jesus — A Place for Reflection</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a14">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Pastor Bobby Ray Goodwin — the loudest, richest, most blessed (fictional) televangelist in Texas. A prosperity-gospel satire chat.">
+<title>Pastor Bobby Ray Goodwin · Prosperity Hour LIVE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div class="bg-glow" aria-hidden="true"></div>
+
 <header class="topbar">
-  <a class="brand" href="#home" aria-label="Talk with Jesus home"><span class="cross">†</span><span>Talk with Jesus<small>A PLACE FOR REFLECTION</small></span></a>
-  <nav class="nav" aria-label="Main navigation"><a href="#chat">The Conversation</a><a href="#scripture">Scripture</a><a href="#support">Support</a><button class="btn" id="topDonate">♥ Support the Project</button></nav>
-  <button class="mobile-menu" id="mobileDonate" aria-label="Support the project">♥</button>
+  <a class="brand" href="#" aria-label="Prosperity Hour home">
+    <span class="brand-mark">✝</span>
+    <span class="brand-text">Prosperity Hour<small>with Pastor Bobby Ray</small></span>
+  </a>
+  <div class="top-right">
+    <span class="live"><i></i>LIVE</span>
+    <button class="btn btn-gold btn-sm" data-donate>🙏 Sow $25</button>
+  </div>
 </header>
-<main id="home">
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">Faith · Reflection · Hope</div>
-      <h1>Come as you are.<br><span>Find a moment of peace.</span></h1>
-      <p class="subtitle">A quiet space to ask questions, reflect on Scripture, and explore matters of faith. Begin wherever you are in your journey.</p>
-      <blockquote class="verse">“Come to me, all you who are weary and burdened, and I will give you rest.”<cite>MATTHEW 11:28 · NEW INTERNATIONAL VERSION</cite></blockquote>
-      <div class="hero-actions"><a class="btn" href="#chat">Begin a Conversation</a><a class="btn ghost" href="#scripture">Explore Scripture ↓</a></div>
-    </div>
-    <aside class="sanctuary" id="chat">
-      <div class="halo" aria-hidden="true">✝</div>
-      <div class="eyebrow">Your quiet place</div>
-      <h2>What is on your heart?</h2>
-      <p>Share a question or a thought. Take a breath, and begin.</p>
-      <div class="rule"></div>
-      <div class="chatbox">
-        <label for="message">Your message</label>
-        <textarea id="message" placeholder="I have been struggling with…" maxlength="1200"></textarea>
-        <button class="btn" id="sendBtn">Begin the Conversation →</button>
-        <div class="note">A quiet place for faith and reflection. Press Enter to send; Shift+Enter for a new line.</div>
-        <div class="chat-response" id="response" aria-live="polite"><small id="responseLabel">A moment for reflection</small><span id="responseText"></span><div class="chat-tools" id="answerTools" hidden><button class="tool-btn" id="speakBtn" type="button">▶ Listen to this answer</button><button class="tool-btn" id="stopSpeakBtn" type="button">■ Stop voice</button></div></div>
+
+<main class="layout">
+  <!-- LEFT: pastor card -->
+  <aside class="pastor">
+    <div class="pastor-card">
+      <div class="avatar-wrap">
+        <div class="avatar" aria-hidden="true"><span>BR</span></div>
+        <span class="verified" title="Anointed & verified">✓</span>
       </div>
-    </aside>
-  </section>
-  <section class="section" id="scripture">
-    <div class="section-head"><div class="eyebrow">A path for the soul</div><h2>Make room for reflection</h2><p>Explore faith at your own pace. These spaces are designed for reflection and encouragement, not as a substitute for pastoral, medical, or professional care.</p></div>
-    <div class="cards">
-      <a class="feature" href="#chat" data-prompt="I would like to reflect on faith and hope."><div class="symbol">✧</div><h3>Faith & Hope</h3><p>Find words for difficult seasons and reflect on what gives life meaning.</p></a>
-      <a class="feature" href="#chat" data-prompt="Please help me find a Bible passage for today."><div class="symbol">♧</div><h3>Scripture</h3><p>Explore biblical passages and consider how their themes apply today.</p></a>
-      <a class="feature" href="#chat" data-prompt="I would like to write a prayer for my family."><div class="symbol">☼</div><h3>Prayer & Stillness</h3><p>Take a quiet moment to put your hopes, worries, and gratitude into words.</p></a>
-      <a class="feature" href="#chat" data-prompt="I need help thinking through a difficult decision."><div class="symbol">✥</div><h3>Life & Purpose</h3><p>Reflect on choices, relationships, responsibility, and the next right step.</p></a>
+      <h1>Pastor Bobby Ray Goodwin</h1>
+      <p class="role">Founder · Golden Harvest Mega-Ministry · Texas</p>
+      <div class="stats">
+        <div><b>3</b><span>Private jets</span></div>
+        <div><b>40k</b><span>Sq-ft mansion</span></div>
+        <div><b>∞</b><span>Blessings</span></div>
+      </div>
+      <blockquote>“Poverty ain't a circumstance, darlin' — it's a faith problem. Hallelujah!”</blockquote>
+
+      <div class="seed-box">
+        <div class="seed-head">
+          <span class="seed-badge">Seed Faith Offering</span>
+          <span class="seed-price">$25</span>
+        </div>
+        <ul class="perks">
+          <li>✦ Personal “blessing breakthrough” from Bobby Ray</li>
+          <li>✦ Your name on the Golden Harvest Wall</li>
+          <li>✦ VIP supporter status in the chat</li>
+        </ul>
+        <button class="btn btn-gold btn-block btn-shine" data-donate>🙏 Sow my $25 seed</button>
+        <p class="secure">🔒 Secure checkout via NOWPayments · takes ~1 minute</p>
+      </div>
+
     </div>
-  </section>
-  <section class="support" id="support">
-    <div><div class="eyebrow">Keep this project available</div><h2>Support the project</h2><p>If this space has been useful to you, you can help cover hosting and development costs. Support is entirely voluntary and does not purchase blessings, miracles, or spiritual favor.</p></div>
-    <div class="support-actions"><button class="btn" id="donateBtn">♥ Make a Donation</button><span class="note">Voluntary support · cryptocurrency payments.</span></div>
+  </aside>
+
+  <!-- RIGHT: chat -->
+  <section class="chat" aria-label="Chat with Pastor Bobby Ray">
+    <div class="chat-head">
+      <div class="mini-avatar">BR</div>
+      <div class="chat-title">
+        <b>Pastor Bobby Ray</b>
+        <span id="statusLine"><i class="dot"></i> Online · ready to bless you</span>
+      </div>
+      <div class="chat-head-actions">
+        <button class="icon-btn" id="musicToggle" type="button" aria-pressed="false" title="Gospel organ music">♫</button>
+        <button class="icon-btn" id="voiceToggle" type="button" aria-pressed="false" title="Read replies aloud">🔈</button>
+        <button class="icon-btn" id="resetChat" type="button" title="New conversation">↻</button>
+      </div>
+    </div>
+
+    <div class="messages" id="messages" aria-live="polite"></div>
+
+    <div class="chips" id="chips">
+      <button type="button" data-prompt="Why do you need three private jets?">✈️ Why 3 private jets?</button>
+      <button type="button" data-prompt="How do I become rich like you, Pastor?">💰 How do I get rich?</button>
+      <button type="button" data-prompt="Pastor, I'm going through a hard time. Pray for me.">🙏 Pray for me</button>
+      <button type="button" data-prompt="Isn't this whole prosperity gospel thing a scam?">🤨 Is this a scam?</button>
+    </div>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <textarea id="message" rows="1" maxlength="1200" placeholder="Type your message to Pastor Bobby Ray…" aria-label="Your message"></textarea>
+      <button class="send" id="sendBtn" type="submit" aria-label="Send">➤</button>
+    </form>
+    <div class="composer-hint">Enter to send · Shift+Enter for a new line</div>
   </section>
 </main>
-<footer class="footer"><strong>TALK WITH JESUS</strong><br>A digital space for faith and reflection.<br>Conversations are generated by software for personal reflection. This site is not Jesus Christ, a church, or an official ministry; its responses may be inaccurate.</footer>
-<div class="sound-control"><label for="musicMode">Sound</label><select id="musicMode" aria-label="Ambient sound type"><option value="organ">Soft organ</option><option value="bells">Soft bells</option><option value="rain">Low ambience</option></select><button class="tool-btn" id="musicToggle" type="button" aria-pressed="false">♫ Play</button><label for="musicVolume">Vol.</label><input id="musicVolume" type="range" min="0" max="0.45" step="0.01" value="0.22" aria-label="Ambient music volume"></div>
-<div class="modal" id="donationModal" role="dialog" aria-modal="true" aria-labelledby="donationTitle"><div class="modal-card"><button class="close" id="closeModal" aria-label="Close">×</button><div class="eyebrow">Voluntary support</div><h2 id="donationTitle">Support Talk with Jesus</h2><p>Your contribution helps cover hosting and development. Support is voluntary. Payment opens on the secure NOWPayments website; this site never asks for your wallet seed phrase or private keys.</p><div class="amounts" id="amounts"><button type="button" data-amount="25" class="selected">$25</button><button type="button" data-amount="30">$30</button><button type="button" data-amount="50">$50</button><button type="button" data-amount="100">$100</button></div><label for="customAmount" style="display:block;margin:12px 0 6px;color:var(--gold2)">Your amount (USD, minimum $25)</label><input id="customAmount" type="number" min="25" step="0.01" inputmode="decimal" placeholder="Enter amount, e.g. 1000" style="box-sizing:border-box;width:100%;padding:12px;background:#100906;color:var(--cream);border:1px solid #8f6733;border-radius:3px" aria-describedby="amountHelp"><div class="note" id="amountHelp">Enter $25 or more. You can enter a custom amount such as $1,000.</div><button class="btn" style="width:100%;margin-top:14px" id="continueDonate">Continue to secure payment</button><button class="tool-btn" style="width:100%;margin-top:10px" id="checkPayment" hidden>I've paid — check status</button><div class="status" id="donateStatus" aria-live="polite"></div></div></div>
+
+<footer class="footer">
+  <p><b>Pastor Bobby Ray Goodwin is a fictional character</b> — an AI-powered satire of the “prosperity gospel.” Any resemblance to real preachers is purely coincidental (and probably deserved).</p>
+  <p>Seeds are voluntary tips that support this comedy project. They don't buy real blessings, miracles or wealth — just more of Bobby Ray. Never send money you need.</p>
+</footer>
+
+<!-- Donation modal -->
+<div class="modal" id="donationModal" role="dialog" aria-modal="true" aria-labelledby="donationTitle" hidden>
+  <div class="modal-card">
+    <button class="close" id="closeModal" type="button" aria-label="Close">×</button>
+    <div class="modal-top">
+      <div class="modal-icon">🙏</div>
+      <h2 id="donationTitle">Sow your Seed of Faith</h2>
+      <p>“The Spirit is telling me <em>you</em> are next in line for a breakthrough, Hallelujah!”</p>
+    </div>
+
+    <div class="amounts" id="amounts">
+      <button type="button" data-amount="25" class="selected"><b>$25</b><span>Blessing seed</span><em>Recommended</em></button>
+      <button type="button" data-amount="50"><b>$50</b><span>Double portion</span></button>
+      <button type="button" data-amount="100"><b>$100</b><span>Jet-fuel partner</span></button>
+    </div>
+    <details class="custom">
+      <summary>Enter a different amount</summary>
+      <input id="customAmount" type="number" min="25" step="0.01" inputmode="decimal" placeholder="Amount in USD (min $25)">
+    </details>
+
+    <button class="btn btn-gold btn-block btn-lg btn-shine" id="continueDonate" type="button">Sow <span id="payAmount">$25</span> now →</button>
+
+    <ol class="steps">
+      <li><b>1</b><span>Tap the button — a secure NOWPayments page opens.</span></li>
+      <li><b>2</b><span>Pick any coin (USDT, BTC, ETH…) and send the exact amount shown.</span></li>
+      <li><b>3</b><span>You'll return here automatically and Bobby Ray will bless you.</span></li>
+    </ol>
+
+    <button class="btn btn-ghost btn-block" id="checkPayment" type="button" hidden>I've paid — check status</button>
+    <div class="status" id="donateStatus" aria-live="polite"></div>
+    <p class="fine">🔒 We never ask for card numbers, seed phrases or private keys. Voluntary tip for a satire project.</p>
+  </div>
+</div>
+
+<!-- Thank-you modal -->
+<div class="modal" id="thanksModal" role="dialog" aria-modal="true" aria-labelledby="thanksTitle" hidden>
+  <div class="modal-card thanks">
+    <div class="confetti" aria-hidden="true"></div>
+    <div class="modal-icon big">👑</div>
+    <h2 id="thanksTitle">HALLELUJAH! Seed received!</h2>
+    <p id="thanksText">Your payment is being confirmed on the blockchain. You're now a VIP partner of the Golden Harvest Ministry!</p>
+    <button class="btn btn-gold btn-block" id="thanksClose" type="button">Back to Pastor Bobby Ray</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
 <script src="/js/app.js" defer></script>
-</body></html>
+</body>
+</html>
