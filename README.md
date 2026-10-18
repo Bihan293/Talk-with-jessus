@@ -56,6 +56,10 @@ Payment endpoints: `POST /api/create-invoice` and `GET /api/payment-status?invoi
 The create-invoice endpoint prefers `web_app_invoice_url` when Crypto Pay returns it, and falls back to `pay_url` if it does not. The hosted payment page opens separately; Crypto Pay controls that page and may not permit embedding it inside the website. Payment status is verified server-side with `getInvoices`.
 
 
-## NOWPayments + Neon setup
+## NOWPayments direct payment + Neon setup
 
-Required Cloudflare Worker secrets: `GROQ_API_KEY`, `DATABASE_URL` (Neon pooled connection string), `NOWPAYMENTS_API_KEY`, and `NOWPAYMENTS_IPN_SECRET`. Do not commit secret values. The Worker creates the `payments` table automatically on the first invoice request. Configure the NOWPayments IPN callback URL to `https://YOUR-WORKER-DOMAIN/api/nowpayments-ipn`. The IPN secret must match the value stored as `NOWPAYMENTS_IPN_SECRET`. Only the NOWPayments `finished` status is shown to the visitor as paid. Test with a small permitted amount before production.
+Required Cloudflare Worker secrets: `GROQ_API_KEY`, `DATABASE_URL` (Neon pooled connection string), `NOWPAYMENTS_API_KEY`, and `NOWPAYMENTS_IPN_SECRET`. Never commit secret values. The Worker creates the `payments` table automatically on the first payment request.
+
+This version uses the NOWPayments **Payment API** directly for `usdttrc20` rather than opening the hosted invoice currency picker. It displays the exact amount and destination address returned by NOWPayments. The visitor must send only USDT on the TRON/TRC20 network to that exact address. If the API says the currency is unavailable or rejects the request, the site shows the provider's safe error message; code cannot override account or provider-side currency restrictions.
+
+Configure the NOWPayments IPN callback URL to `https://YOUR-WORKER-DOMAIN/api/nowpayments-ipn`. The IPN secret must match `NOWPAYMENTS_IPN_SECRET`. Only the NOWPayments `finished` status is shown to the visitor as paid. Verify the deployed worker and run a small permitted test before accepting real donations. Check provider terms, account eligibility and local requirements before accepting payments. Support is voluntary and is not a purchase of spiritual services.

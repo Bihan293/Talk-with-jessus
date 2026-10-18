@@ -38,17 +38,21 @@ export default {
    try {
     const sql = neon(env.DATABASE_URL);
     await sql`CREATE TABLE IF NOT EXISTS payments (order_id TEXT PRIMARY KEY, invoice_id TEXT, payment_id TEXT, amount NUMERIC(10,2) NOT NULL, status TEXT NOT NULL DEFAULT 'waiting', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
-    const upstream = await fetch("https://api.nowpayments.io/v1/invoice", {
+    // Create a direct payment instead of an invoice checkout. This avoids the hosted
+    // currency picker and asks NOWPayments for a specific, supported network.
+    const upstream = await fetch("https://api.nowpayments.io/v1/payment", {
      method: "POST",
      headers: { "x-api-key": env.NOWPAYMENTS_API_KEY, "Content-Type": "application/json" },
-     body: JSON.stringify({ price_amount: amount, price_currency: "usd", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn`, success_url: `${url.origin}/?payment=success`, cancel_url: `${url.origin}/?payment=cancelled`, is_fixed_rate: false, is_fee_paid_by_user: true })
+     body: JSON.stringify({ price_amount: amount, price_currency: "usd", pay_currency: "usdttrc20", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn` })
     });
     const data = await upstream.json().catch(() => ({}));
-    const payUrl = data.invoice_url;
-    if (!upstream.ok || !payUrl || !data.id) return json({ error: "NOWPayments could not create an invoice. Check the API key and account setup." }, 502);
-    await sql`INSERT INTO payments (order_id, invoice_id, amount, status) VALUES (${orderId}, ${String(data.id)}, ${amount}, 'waiting')`;
-    return json({ invoice_id: orderId, pay_url: payUrl, amount: String(amount), currency: "USD", payment_page: "web" });
-   } catch { return json({ error: "Could not create payment invoice or save it to the database." }, 502); }
+    if (!upstream.ok || !data.payment_id || !data.pay_address || !data.pay_amount) {
+     const providerMessage = typeof data.message === "string" ? data.message.slice(0, 240) : "No payment address was returned.";
+     return json({ error: `NOWPayments could not create a USDT TRC20 payment: ${providerMessage}` }, 502);
+    }
+    await sql`INSERT INTO payments (order_id, invoice_id, payment_id, amount, status) VALUES (${orderId}, ${String(data.payment_id)}, ${String(data.payment_id)}, ${amount}, ${String(data.payment_status || 'waiting')})`;
+    return json({ invoice_id: orderId, payment_id: String(data.payment_id), pay_address: String(data.pay_address), pay_amount: String(data.pay_amount), pay_currency: String(data.pay_currency || "usdttrc20"), amount: String(amount), currency: "USD", payment_page: "direct" });
+   } catch { return json({ error: "Could not create payment or save it to the database. Please try again later." }, 502); }
   }
   if (url.pathname === "/api/payment-status") {
    if (request.method !== "GET") return json({ error: "Method not allowed." }, 405);
@@ -84,7 +88,11 @@ export default {
    if (!allowedStatuses.includes(paymentStatus)) return json({ error: "Unknown payment status." }, 400);
    try {
     const sql = neon(env.DATABASE_URL);
-    const result = await sql`UPDATE payments SET payment_id = ${payload.payment_id == null ? null : String(payload.payment_id)}, status = ${paymentStatus}, updated_at = NOW() WHERE order_id = ${orderId}`;
+    const rows = await sql`SELECT amount, payment_id FROM payments WHERE order_id = ${orderId} LIMIT 1`;
+    if (!rows.length) return json({ error: "Unknown order." }, 404);
+    if (payload.price_amount != null && Math.abs(Number(payload.price_amount) - Number(rows[0].amount)) > 0.01) return json({ error: "Payment amount mismatch." }, 400);
+    if (payload.payment_id != null && rows[0].payment_id != null && String(payload.payment_id) !== String(rows[0].payment_id)) return json({ error: "Payment ID mismatch." }, 400);
+    await sql`UPDATE payments SET payment_id = ${payload.payment_id == null ? rows[0].payment_id : String(payload.payment_id)}, status = ${paymentStatus}, updated_at = NOW() WHERE order_id = ${orderId}`;
     return json({ ok: true });
    } catch { return json({ error: "Could not update payment status." }, 502); }
   }
