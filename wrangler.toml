@@ -8,4 +8,4 @@ binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
 [vars]
-GROQ_MODEL = "openai/gpt-oss-20b"
+GROQ_MODEL = "openai/gpt-oss-120b"
