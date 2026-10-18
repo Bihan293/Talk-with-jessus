@@ -23,3 +23,14 @@ Ambient audio is generated locally in the browser with Web Audio (no audio file 
 
 ## Important
 The donation dialog is a non-payment prototype; no payment is collected. The AI character is clearly presented as AI and must not promise blessings, miracles, healing, or financial returns in exchange for donations.
+
+
+## Cost and abuse protections in this version
+
+- User message maximum: 1,200 characters (validated in the browser and Worker).
+- Request body maximum: 32 KB.
+- Conversation history: up to 6 recent messages, each truncated to 900 characters.
+- Model output: capped at 130 completion tokens, with a short-answer system instruction.
+- Best-effort rate limit: 10 messages per IP per minute per Worker isolate. This is not a global or tamper-proof limit because isolate memory can reset or differ between isolates. Before public launch/payment, configure Cloudflare's rate limiting or a Durable Object-backed limiter.
+- Model can be selected in the chat UI; the Worker validates the requested model against the allowlist and can fall back when a model is unavailable.
+- Ambient sounds are generated locally by the browser after the user presses Play; no external audio file is loaded. Browser/device audio support and mute settings can affect playback.

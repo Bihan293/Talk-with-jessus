@@ -1,4 +1,4 @@
-const SYSTEM_PROMPT = `You are Talk with Jesus, an AI spiritual conversation companion inspired by biblical teachings and the confident, charismatic style of contemporary Christian preaching. You are an AI character, not Jesus Christ, and must never claim to be divine or to deliver infallible revelation. Speak in fluent, warm, vivid English. Be engaging and memorable, but never manipulate, threaten, shame, or exploit a person's grief, fear, loneliness, or financial hardship. Answer the user's actual question first, then offer a concise reflection and practical next step. You may discuss faith, hope, forgiveness, purpose, generosity, discipline and financial responsibility. Distinguish exact Bible quotations from paraphrases and never invent verse references. Never promise miracles, healing, salvation, wealth, or divine favor in exchange for money. Donations must remain voluntary and separate from spiritual guidance. Do not discourage medical or mental-health care. Respect different beliefs and clarify that you are an AI when relevant.`;
+const SYSTEM_PROMPT = `You are an AI Christian reflection companion inspired by the teachings of Jesus; you are NOT Jesus and must never call yourself Jesus or claim to speak for God. If asked who you are, say you are an AI companion inspired by Jesus's teachings. Speak in natural, calm, compassionate English with a humble, memorable, biblical tone. Keep every answer brief: usually 2–4 sentences and under 80 words. Answer the actual question directly; avoid long sermons, repeated points, lengthy lists, and unnecessary introductions. Offer at most one practical next step. Never invent Bible quotations or verse references. Do not promise miracles, healing, wealth, salvation, or divine favor in exchange for money. Donations are voluntary and unrelated to spiritual guidance. Do not discourage medical or mental-health care. Be respectful of other beliefs.`;
 const MODELS = [
   { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
   { id: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B" },
@@ -6,6 +6,8 @@ const MODELS = [
 ];
 // Per-isolate cooldowns. These are a best-effort cache; isolates may restart.
 const cooldowns = new Map();
+// Best-effort per-isolate abuse guard; use Cloudflare rate limiting/Durable Objects for global enforcement.
+const requestWindows = new Map();
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
 function json(data, status = 200, extra = {}) { return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...extra } }); }
 function retryMs(response, data) {
@@ -27,14 +29,28 @@ export default {
   if (url.pathname !== "/api/chat") return env.ASSETS.fetch(request);
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   if (!env.GROQ_API_KEY) return json({ error: "The chat service is not configured yet. Add GROQ_API_KEY in Worker secrets." }, 503);
-  let body; try { body = await request.json(); } catch { return json({ error: "Invalid JSON request." }, 400); }
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > 32_000) return json({ error: "Request is too large. Please shorten your message." }, 413);
+  let rawBody;
+  try { rawBody = await request.text(); } catch { return json({ error: "Could not read request." }, 400); }
+  if (rawBody.length > 32_000) return json({ error: "Request is too large. Please shorten your message." }, 413);
+  let body; try { body = JSON.parse(rawBody); } catch { return json({ error: "Invalid JSON request." }, 400); }
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return json({ error: "Please enter a message." }, 400);
-  if (message.length > 2000) return json({ error: "Please keep your message under 2,000 characters." }, 413);
-  const rawHistory = Array.isArray(body.history) ? body.history.slice(-10) : [];
-  const history = rawHistory.filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").map(m => ({ role: m.role, content: m.content.slice(0, 2500) }));
+  if (message.length > 1200) return json({ error: "Please keep your message under 1,200 characters." }, 413);
+  const clientKey = request.headers.get("CF-Connecting-IP") || "unknown-client";
+  const nowForLimit = Date.now();
+  const windowState = requestWindows.get(clientKey);
+  if (!windowState || nowForLimit - windowState.startedAt >= 60_000) requestWindows.set(clientKey, { startedAt: nowForLimit, count: 1 });
+  else if (windowState.count >= 10) return json({ error: "Too many messages in a short time. Please wait a minute and try again." }, 429, { "Retry-After": "60" });
+  else windowState.count++;
+  if (requestWindows.size > 1000) { for (const [key, value] of requestWindows) if (nowForLimit - value.startedAt > 120_000) requestWindows.delete(key); }
+  // Strictly bound history to control token use even if a client is modified.
+  const rawHistory = Array.isArray(body.history) ? body.history.slice(-6) : [];
+  const history = rawHistory.filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").map(m => ({ role: m.role, content: m.content.slice(0, 900) }));
   const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history, { role: "user", content: message }];
-  const preferred = typeof env.GROQ_MODEL === "string" && MODELS.some(m => m.id === env.GROQ_MODEL) ? env.GROQ_MODEL : MODELS[0].id;
+  const requestedModel = typeof body.model === "string" && MODELS.some(m => m.id === body.model) ? body.model : null;
+  const preferred = requestedModel || (typeof env.GROQ_MODEL === "string" && MODELS.some(m => m.id === env.GROQ_MODEL) ? env.GROQ_MODEL : MODELS[0].id);
   const ordered = [...MODELS].sort((a,b) => (a.id === preferred ? -1 : b.id === preferred ? 1 : MODELS.findIndex(x=>x.id===a.id)-MODELS.findIndex(x=>x.id===b.id)));
   const now = Date.now();
   const available = ordered.filter(m => (cooldowns.get(m.id) || 0) <= now);
@@ -42,7 +58,7 @@ export default {
   let lastStatus = 502;
   for (const model of candidates) {
    try {
-    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.8, max_completion_tokens: 700 }) });
+    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.65, max_completion_tokens: 130, reasoning_effort: model.id === "qwen/qwen3.8-27b" ? "none" : "low" }) });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       lastStatus = upstream.status;
