@@ -26,6 +26,38 @@ export default {
  async fetch(request, env) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (url.pathname === "/api/create-invoice") {
+   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
+   if (!env.CRYPTOPAY_API_TOKEN) return json({ error: "Crypto Pay is not configured yet." }, 503);
+   let body; try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
+   const allowedAmounts = [1, 5, 10, 25];
+   const amount = Number(body.amount);
+   if (!allowedAmounts.includes(amount)) return json({ error: "Choose one of the available donation amounts." }, 400);
+   try {
+    const upstream = await fetch("https://pay.crypt.bot/api/createInvoice", {
+     method: "POST",
+     headers: { "Crypto-Pay-API-Token": env.CRYPTOPAY_API_TOKEN, "Content-Type": "application/json" },
+     body: JSON.stringify({ currency_type: "fiat", fiat: "USD", amount: String(amount), accepted_assets: "USDT,TON,BTC,ETH,LTC,BNB,TRX,USDC", description: "Voluntary support for Talk with Jesus", allow_comments: false, allow_anonymous: true, expires_in: 1800 })
+    });
+    const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok || !data.ok || !data.result?.pay_url || !data.result?.invoice_id) return json({ error: "Crypto Pay could not create an invoice. Please try again later." }, 502);
+    return json({ invoice_id: String(data.result.invoice_id), pay_url: data.result.pay_url, amount: String(amount), currency: "USD", expires_in: 1800 });
+   } catch { return json({ error: "Could not connect to Crypto Pay. Please try again." }, 502); }
+  }
+  if (url.pathname === "/api/payment-status") {
+   if (request.method !== "GET") return json({ error: "Method not allowed." }, 405);
+   if (!env.CRYPTOPAY_API_TOKEN) return json({ error: "Crypto Pay is not configured yet." }, 503);
+   const invoiceId = url.searchParams.get("invoice_id") || "";
+   if (!/^\d{1,20}$/.test(invoiceId)) return json({ error: "Invalid invoice ID." }, 400);
+   try {
+    const upstream = await fetch("https://pay.crypt.bot/api/getInvoices?invoice_ids=" + encodeURIComponent(invoiceId), { headers: { "Crypto-Pay-API-Token": env.CRYPTOPAY_API_TOKEN } });
+    const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok || !data.ok) return json({ error: "Could not verify payment status." }, 502);
+    const invoice = (data.result?.items || []).find(item => String(item.invoice_id) === invoiceId);
+    if (!invoice) return json({ error: "Invoice not found." }, 404);
+    return json({ invoice_id: invoiceId, status: invoice.status === "paid" ? "paid" : "pending" });
+   } catch { return json({ error: "Could not verify payment status." }, 502); }
+  }
   if (url.pathname !== "/api/chat") return env.ASSETS.fetch(request);
   if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   if (!env.GROQ_API_KEY) return json({ error: "The chat service is not configured yet. Add GROQ_API_KEY in Worker secrets." }, 503);
