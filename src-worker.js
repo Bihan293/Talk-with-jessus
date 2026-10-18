@@ -37,20 +37,20 @@ export default {
    try {
     const sql = neon(env.DATABASE_URL);
     await sql`CREATE TABLE IF NOT EXISTS payments (order_id TEXT PRIMARY KEY, invoice_id TEXT, payment_id TEXT, amount NUMERIC(10,2) NOT NULL, status TEXT NOT NULL DEFAULT 'waiting', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
-    // Create a direct payment instead of an invoice checkout. This avoids the hosted
-    // currency picker and asks NOWPayments for a specific, supported network.
-    const upstream = await fetch("https://api.nowpayments.io/v1/payment", {
+    // Create a hosted NOWPayments invoice so the supporter pays on the provider's website.
+    const upstream = await fetch("https://api.nowpayments.io/v1/invoice", {
      method: "POST",
      headers: { "x-api-key": env.NOWPAYMENTS_API_KEY, "Content-Type": "application/json" },
-     body: JSON.stringify({ price_amount: amount, price_currency: "usd", pay_currency: "usdttrc20", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn` })
+     body: JSON.stringify({ price_amount: amount, price_currency: "usd", order_id: orderId, order_description: "Voluntary support for Talk with Jesus", ipn_callback_url: `${url.origin}/api/nowpayments-ipn`, success_url: `${url.origin}/?payment=success`, cancel_url: `${url.origin}/?payment=cancelled` })
     });
     const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok || !data.payment_id || !data.pay_address || !data.pay_amount) {
-     const providerMessage = typeof data.message === "string" ? data.message.slice(0, 240) : "No payment address was returned.";
-     return json({ error: `NOWPayments could not create a USDT TRC20 payment: ${providerMessage}` }, 502);
+    const paymentUrl = data.invoice_url || data.pay_url;
+    if (!upstream.ok || !data.id || !paymentUrl) {
+     const providerMessage = typeof data.message === "string" ? data.message.slice(0, 240) : "No hosted invoice URL was returned.";
+     return json({ error: `NOWPayments could not create a hosted invoice: ${providerMessage}` }, 502);
     }
-    await sql`INSERT INTO payments (order_id, invoice_id, payment_id, amount, status) VALUES (${orderId}, ${String(data.payment_id)}, ${String(data.payment_id)}, ${amount}, ${String(data.payment_status || 'waiting')})`;
-    return json({ invoice_id: orderId, payment_id: String(data.payment_id), pay_address: String(data.pay_address), pay_amount: String(data.pay_amount), pay_currency: String(data.pay_currency || "usdttrc20"), amount: String(amount), currency: "USD", payment_page: "direct" });
+    await sql`INSERT INTO payments (order_id, invoice_id, payment_id, amount, status) VALUES (${orderId}, ${String(data.id)}, NULL, ${amount}, 'waiting')`;
+    return json({ invoice_id: orderId, provider_invoice_id: String(data.id), pay_url: String(paymentUrl), amount: String(amount), currency: "USD", payment_page: "hosted" });
    } catch { return json({ error: "Could not create payment or save it to the database. Please try again later." }, 502); }
   }
   if (url.pathname === "/api/payment-status") {
