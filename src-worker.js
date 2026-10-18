@@ -31,9 +31,8 @@ export default {
    if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
    if (!env.NOWPAYMENTS_API_KEY || !env.DATABASE_URL) return json({ error: "Payment service is not configured yet." }, 503);
    let body; try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
-   const allowedAmounts = [1, 5, 10, 25];
    const amount = Number(body.amount);
-   if (!allowedAmounts.includes(amount)) return json({ error: "Choose one of the available donation amounts." }, 400);
+   if (!Number.isFinite(amount) || amount < 25 || Math.round(amount * 100) !== amount * 100) return json({ error: "The minimum payment is $25. Enter a valid amount with up to two decimal places." }, 400);
    const orderId = crypto.randomUUID();
    try {
     const sql = neon(env.DATABASE_URL);
