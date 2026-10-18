@@ -120,7 +120,7 @@ export default {
   let lastStatus = 502;
   for (const model of candidates) {
    try {
-    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.65, max_completion_tokens: 130, reasoning_effort: model.id === "qwen/qwen3.8-27b" ? "none" : "low" }) });
+    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: model.id, messages, temperature: 0.65, max_completion_tokens: 220, reasoning_effort: model.id === "qwen/qwen3.8-27b" ? "none" : "low" }) });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       lastStatus = upstream.status;
